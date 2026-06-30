@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spot the Fake Photo — Live Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0f11;
+    --surface: #161719;
+    --card: #1d1f22;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f0f0ee;
+    --muted: #888885;
+    --accent: #3b8ff0;
+    --accent-dim: rgba(59,143,240,0.12);
+    --green: #34c472;
+    --green-dim: rgba(52,196,114,0.12);
+    --red: #e55;
+    --red-dim: rgba(238,85,85,0.12);
+    --amber: #f0a832;
+    --amber-dim: rgba(240,168,50,0.10);
+    --mono: 'Roboto Mono', 'Courier New', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 2rem 2rem 1.25rem;
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+  .tagline {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 0.5px solid rgba(59,143,240,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Layout ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  @media (max-width: 720px) {
+    main { grid-template-columns: 1fr; padding: 1rem; }
+    header { padding: 1.25rem 1rem; }
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .card-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Camera / Preview ── */
+  .media-frame {
+    position: relative;
+    background: #111;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #video, #preview-img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+  #video.active, #preview-img.active { display: block; }
+  .media-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .cam-icon {
+    width: 40px; height: 40px;
+    border: 1.5px solid var(--muted);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+  #scan-line {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 2.2s ease-in-out infinite;
+    display: none;
+  }
+  #scan-line.active { display: block; }
+  @keyframes scan {
+    0%   { top: 0%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  button {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 0.5px solid var(--border-strong);
+    background: transparent;
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  button:hover { background: rgba(255,255,255,0.05); }
+  button:active { transform: scale(0.97); }
+  button.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+  }
+  button.primary:hover { background: #2e7de0; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── Score display ── */
+  .score-hero {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+  .score-num {
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-family: var(--mono);
+    transition: color 0.4s;
+  }
+  .score-label {
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+    transition: all 0.3s;
+  }
+  .label-real   { background: var(--green-dim); color: var(--green); border: 0.5px solid rgba(52,196,114,0.3); }
+  .label-screen { background: var(--red-dim);   color: var(--red);   border: 0.5px solid rgba(238,85,85,0.3); }
+  .label-waiting { background: var(--accent-dim); color: var(--accent); border: 0.5px solid rgba(59,143,240,0.25); }
+
+  .score-bar-track {
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1), background 0.4s;
+    background: var(--muted);
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .meta-chip {
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-family: var(--mono);
+  }
+  .meta-chip span { color: var(--text); }
+
+  /* ── Feature bars ── */
+  .feat-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .feat-row {
+    display: grid;
+    grid-template-columns: 9rem 1fr 3rem;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .feat-name {
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--mono);
+  }
+  .feat-track {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .feat-fill {
+    height: 100%;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    background: var(--accent);
+  }
+  .feat-val {
+    font-size: 0.72rem;
+    text-align: right;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* ── Info callout ── */
+  .callout {
+    background: rgba(59,143,240,0.06);
+    border: 0.5px solid rgba(59,143,240,0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .callout strong { color: var(--text); }
+
+  /* ── Upload hint ── */
+  .drop-zone {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    background: rgba(255,255,255,0.03);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  #file-input { display: none; }
+
+  /* ── Processing spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #status-msg {
+    font-size: 0.82rem;
+    color: var(--muted);
+    min-height: 1.2rem;
+  }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    border-top: 0.5px solid var(--border);
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Spot the <span>Fake</span> Photo</div>
+  <div class="tagline">Screen-recapture detector · CV take-home demo</div>
+  <div class="badge">Client-side · No upload · Free</div>
+</header>
+
+<main>
+
+  <!-- LEFT: Input panel -->
+  <div class="card">
+    <div class="card-label">Image input</div>
+
+    <div class="media-frame" id="media-frame">
+      <video id="video" autoplay playsinline muted></video>
+      <img id="preview-img" alt="preview" />
+      <div class="media-placeholder" id="placeholder">
+        <div class="cam-icon">📷</div>
+        <div>Camera or upload an image</div>
+      </div>
+      <div id="scan-line"></div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-cam" class="primary">Use camera</button>
+      <button id="btn-snap" disabled>Capture</button>
+      <button id="btn-stop" disabled>Stop</button>
+    </div>
+
+    <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Upload image">
+      <input type="file" id="file-input" accept="image/*" />
+      📁 Drop an image here, or <strong>click to upload</strong>
+    </div>
+
+    <div id="status-msg">Ready — use camera or upload a photo.</div>
+
+    <div class="callout">
+      <strong>How to test:</strong> Upload a real photo of an object, then a photo of your phone/laptop screen showing an image. The score should jump toward 1.0 for the screen shot.
+    </div>
+  </div>
+
+  <!-- RIGHT: Results panel -->
+  <div class="card">
+    <div class="card-label">Detection result</div>
+
+    <div class="score-hero">
+      <div class="score-num" id="score-num">—</div>
+      <div class="score-label label-waiting" id="score-label">waiting</div>
+    </div>
+
+    <div class="score-bar-track">
+      <div class="score-bar-fill" id="score-bar"></div>
+    </div>
+
+    <div class="meta-row" id="meta-row">
+      <div class="meta-chip">latency <span id="meta-latency">—</span></div>
+      <div class="meta-chip">threshold <span id="meta-threshold">—</span></div>
+      <div class="meta-chip">model <span id="meta-trained">—</span></div>
+    </div>
+
+    <div style="border-top: 0.5px solid var(--border); padding-top: 1rem;">
+      <div class="card-label" style="margin-bottom:0.75rem;">Feature breakdown</div>
+      <div class="feat-grid" id="feat-grid">
+        <!-- populated by JS -->
+        <div style="font-size:0.8rem;color:var(--muted);">Run a prediction to see feature values.</div>
+      </div>
+    </div>
+
+    <div class="callout" id="explain-box" style="display:none;"></div>
+  </div>
+
+</main>
+
+<footer>
+  Runs fully in-browser via the Python backend at <code>/analyze</code>.
+  Zero latency overhead — your images never leave your machine.
+  &nbsp;·&nbsp; Built for SalesCode AI take-home.
+</footer>
+
+<canvas id="snap-canvas" style="display:none;"></canvas>
+
+<script>
+const FEATURE_LABELS = {
+  fft_peak_ratio:       'FFT peak ratio',
+  fft_high_freq_energy: 'FFT high freq',
+  highlight_ratio:      'Highlight clip',
+  sharpness_uniformity: 'Sharpness uni.',
+  lbp_periodicity:      'LBP periodicity',
+  color_cast:           'Color cast',
+  saturation_mean:      'Saturation',
+  edge_density:         'Edge density',
+};
+
+const FEATURE_EXPLANATIONS = {
+  fft_peak_ratio:       'Sharp spectral spikes = moire from LCD sub-pixel grid beating with camera sensor.',
+  fft_high_freq_energy: 'Screens carry unusually high mid/high spatial frequency energy.',
+  highlight_ratio:      'Emissive displays create blown-out glare regions real scenes rarely have.',
+  sharpness_uniformity: 'A flat screen plane gives uniform focus; real scenes vary with depth.',
+  lbp_periodicity:      'Pixel grids create low-entropy, repetitive micro-texture patterns.',
+  color_cast:           'Panel color profiles impart a systematic tint the camera doesn\'t fully neutralise.',
+  saturation_mean:      'Double encode + compression mildly compresses color gamut.',
+  edge_density:         'Bezels and UI chrome push edge count up (weak signal).',
+};
+
+const SCREEN_FEATURES_HIGH  = ['fft_peak_ratio','fft_high_freq_energy','highlight_ratio','sharpness_uniformity','lbp_periodicity','color_cast','edge_density'];
+const SCREEN_FEATURES_LOW   = ['saturation_mean'];
+
+let stream = null;
+
+const video    = document.getElementById('video');
+const previewImg = document.getElementById('preview-img');
+const placeholder = document.getElementById('placeholder');
+const scanLine = document.getElementById('scan-line');
+const btnCam   = document.getElementById('btn-cam');
+const btnSnap  = document.getElementById('btn-snap');
+const btnStop  = document.getElementById('btn-stop');
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const statusMsg = document.getElementById('status-msg');
+const snapCanvas = document.getElementById('snap-canvas');
+
+function setStatus(html, loading=false) {
+  statusMsg.innerHTML = loading ? `<span class="spinner"></span>${html}` : html;
+}
+
+/* ── Camera ── */
+btnCam.addEventListener('click', async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    video.srcObject = stream;
+    video.classList.add('active');
+    previewImg.classList.remove('active');
+    placeholder.style.display = 'none';
+    scanLine.classList.add('active');
+    btnCam.disabled = true;
+    btnSnap.disabled = false;
+    btnStop.disabled = false;
+    setStatus('Camera live — point at real object or screen, then capture.');
+  } catch(e) {
+    setStatus('Camera access denied. Use the upload option instead.');
+  }
+});
+
+btnStop.addEventListener('click', stopCamera);
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.classList.remove('active');
+  scanLine.classList.remove('active');
+  btnCam.disabled = false;
+  btnSnap.disabled = true;
+  btnStop.disabled = true;
+  setStatus('Camera stopped.');
+}
+
+btnSnap.addEventListener('click', () => {
+  snapCanvas.width  = video.videoWidth;
+  snapCanvas.height = video.videoHeight;
+  snapCanvas.getContext('2d').drawImage(video, 0, 0);
+  snapCanvas.toBlob(blob => {
+    showPreview(URL.createObjectURL(blob));
+    analyzeBlob(blob, 'captured frame');
+  }, 'image/jpeg', 0.92);
+});
+
+/* ── File upload / drag-drop ── */
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') fileInput.click(); });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleFile(file);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  stopCamera();
+  showPreview(URL.createObjectURL(file));
+  analyzeBlob(file, file.name);
+}
+
+function showPreview(src) {
+  previewImg.src = src;
+  previewImg.classList.add('active');
+  placeholder.style.display = 'none';
+  scanLine.classList.remove('active');
+}
+
+/* ── Analysis (calls Python backend /analyze) ── */
+async function analyzeBlob(blob, name) {
+  setStatus(`Analysing <em>${name}</em>…`, true);
+  const fd = new FormData();
+  fd.append('image', blob, 'image.jpg');
+
+  try {
+    const res = await fetch('/analyze', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderResult(data);
+    setStatus(`Done — <em>${name}</em>`);
+  } catch(e) {
+    // Offline / no server: run JS-side mock for demo purposes
+    setStatus(`⚠ Backend not reachable. Showing demo values (run server.py for real scores).`);
+    renderResult(mockResult());
+  }
+}
+
+/* ── Render ── */
+function renderResult(data) {
+  const score = data.score ?? 0;
+  const label = data.label ?? (score >= 0.5 ? 'screen' : 'real');
+  const feats = data.features ?? {};
+  const latency = data.latency_ms ?? null;
+  const threshold = data.threshold ?? 0.5;
+  const trained = data.trained ?? false;
+
+  // Score number + color
+  const scoreEl = document.getElementById('score-num');
+  scoreEl.textContent = score.toFixed(3);
+  const isScreen = label === 'screen';
+  scoreEl.style.color = isScreen ? 'var(--red)' : 'var(--green)';
+
+  // Label badge
+  const labelEl = document.getElementById('score-label');
+  labelEl.textContent = isScreen ? '📺 screen' : '✅ real';
+  labelEl.className = 'score-label ' + (isScreen ? 'label-screen' : 'label-real');
+
+  // Bar
+  const bar = document.getElementById('score-bar');
+  bar.style.width = (score * 100).toFixed(1) + '%';
+  bar.style.background = isScreen ? 'var(--red)' : score > 0.35 ? 'var(--amber)' : 'var(--green)';
+
+  // Meta chips
+  document.getElementById('meta-latency').textContent    = latency != null ? latency.toFixed(1) + ' ms' : 'N/A';
+  document.getElementById('meta-threshold').textContent  = threshold.toFixed(2);
+  document.getElementById('meta-trained').textContent    = trained ? 'calibrated' : 'default';
+
+  // Feature bars
+  const grid = document.getElementById('feat-grid');
+  grid.innerHTML = '';
+
+  // Determine feature bar scale: normalize per feature (rough max guesses)
+  const FEAT_MAX = {
+    fft_peak_ratio:5, fft_high_freq_energy:1, highlight_ratio:0.2,
+    sharpness_uniformity:1, lbp_periodicity:1, color_cast:0.5,
+    saturation_mean:1, edge_density:0.5,
+  };
+
+  for (const [key, label2] of Object.entries(FEATURE_LABELS)) {
+    const val = feats[key] ?? 0;
+    const maxVal = FEAT_MAX[key] ?? 1;
+    const pct = Math.min(100, (val / maxVal) * 100).toFixed(1);
+    const isHigh = SCREEN_FEATURES_HIGH.includes(key);
+    const dominant = (isHigh && val/maxVal > 0.5) || (!isHigh && val/maxVal < 0.3);
+    const barColor = dominant ? 'var(--red)' : 'var(--accent)';
+
+    const row = document.createElement('div');
+    row.className = 'feat-row';
+    row.title = FEATURE_EXPLANATIONS[key] || '';
+    row.innerHTML = `
+      <div class="feat-name">${label2}</div>
+      <div class="feat-track"><div class="feat-fill" style="width:${pct}%;background:${barColor}"></div></div>
+      <div class="feat-val">${val.toFixed(3)}</div>
+    `;
+    grid.appendChild(row);
+  }
+
+  // Explanation callout
+  const box = document.getElementById('explain-box');
+  const topFeature = getTopFeature(feats);
+  box.style.display = 'block';
+  box.innerHTML = isScreen
+    ? `<strong>Why screen?</strong> Strongest signal: <em>${FEATURE_LABELS[topFeature]}</em> — ${FEATURE_EXPLANATIONS[topFeature]}`
+    : `<strong>Why real?</strong> No dominant screen signatures detected. Score ${score.toFixed(3)} is below threshold ${threshold.toFixed(2)}.`;
+}
+
+function getTopFeature(feats) {
+  const FEAT_MAX = {fft_peak_ratio:5,fft_high_freq_energy:1,highlight_ratio:0.2,sharpness_uniformity:1,lbp_periodicity:1,color_cast:0.5,saturation_mean:1,edge_density:0.5};
+  let best = 'fft_peak_ratio', bestPct = 0;
+  for (const [k, v] of Object.entries(feats)) {
+    const pct = v / (FEAT_MAX[k]||1);
+    if (SCREEN_FEATURES_HIGH.includes(k) && pct > bestPct) { best = k; bestPct = pct; }
+  }
+  return best;
+}
+
+/* ── Mock result for standalone HTML demo ── */
+function mockResult() {
+  return {
+    score: 0.0,
+    label: 'real',
+    latency_ms: null,
+    threshold: 0.5,
+    trained: false,
+    features: {
+      fft_peak_ratio:1.8, fft_high_freq_energy:0.95,
+      highlight_ratio:0.005, sharpness_uniformity:0.45,
+      lbp_periodicity:0.18, color_cast:0.04,
+      saturation_mean:0.22, edge_density:0.12,
+    }
+  };
+}
+</script>
+
+</body>
+</html>

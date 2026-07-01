@@ -31,7 +31,7 @@ DEFAULT_MODEL = {
     # sharpness_uniformity, lbp_periodicity, color_cast, saturation_mean, edge_density
     "weights": [0.9, 0.6, 0.5, 0.6, 0.7, 0.5, -0.3, 0.2],
     "bias": -1.6,
-    "threshold": 0.5,
+    "threshold": 0.45,
     "trained": False,
 }
 

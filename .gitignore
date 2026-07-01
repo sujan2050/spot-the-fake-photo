@@ -1,0 +1,23 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Dataset images (personal photos - don't commit)
+real/*
+screen/*
+!real/.gitkeep
+!screen/.gitkeep
+
+# Editor
+.vscode/
+*.swp
